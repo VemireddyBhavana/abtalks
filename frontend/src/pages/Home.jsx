@@ -1,109 +1,105 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, Play, Activity, Server, ShieldCheck, Zap } from 'lucide-react';
-import { checkBackendHealth, checkBackendV1Health } from '../services/api';
-import Button from '../components/common/Button';
-import Card from '../components/common/Card';
-import Badge from '../components/ui/Badge';
+import { motion } from 'framer-motion';
+import { PlayCircle, Sparkles, ShieldCheck, Cpu, Code2, ArrowRight } from 'lucide-react';
+import { useInterview } from '../context/InterviewContext';
 
 export const Home = () => {
   const navigate = useNavigate();
-  const [healthStatus, setHealthStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const { startSession, loading } = useInterview();
 
-  const handleHealthCheck = async () => {
-    setLoading(true);
+  const handleStart = async () => {
     try {
-      const rootData = await checkBackendHealth();
-      const v1Data = await checkBackendV1Health();
-      setHealthStatus({ root: rootData, v1: v1Data });
+      await startSession();
+      navigate('/interview');
     } catch (err) {
-      setHealthStatus({ status: 'error', message: 'Backend API unreachable' });
-    } finally {
-      setLoading(false);
+      console.error(err);
     }
   };
 
+  const features = [
+    {
+      icon: Cpu,
+      title: 'LLM Question Generation',
+      desc: 'Generates dynamic technical questions based on curriculum days and candidate profile using Gemini/OpenAI/Claude.',
+    },
+    {
+      icon: ShieldCheck,
+      title: 'Real-time Rubric Evaluation',
+      desc: 'Evaluates technical accuracy, terminology, reasoning, and completeness across 7 weighted categories.',
+    },
+    {
+      icon: Code2,
+      title: 'Adaptive Follow-up Engine',
+      desc: 'Probes deeper on strong answers, seeks clarification on average answers, or simplifies on weak answers.',
+    },
+  ];
+
   return (
-    <div className="space-y-10 py-4">
+    <div className="flex flex-col gap-12 py-6">
       {/* Hero Section */}
-      <section className="text-center space-y-6 max-w-3xl mx-auto py-8">
-        <Badge variant="emerald">
-          <Zap className="w-3.5 h-3.5" />
-          <span>ABTalks Hackathon Architecture Foundation</span>
-        </Badge>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="glass-panel rounded-3xl p-8 sm:p-12 border border-slate-700/50 shadow-2xl relative overflow-hidden text-center flex flex-col items-center justify-center min-h-[420px]"
+      >
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-          Next-Generation <br className="hidden sm:inline" />
-          <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-            AI Interview Agent
-          </span>
-        </h1>
-
-        <p className="text-slate-400 text-base sm:text-lg leading-relaxed">
-          Production-ready full-stack boilerplate built with React 19, Vite, Tailwind CSS, and FastAPI backend. Prepared for high-performance AI integration.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-          <Button variant="primary" onClick={() => navigate('/interview')}>
-            <Play className="w-5 h-5 fill-slate-950" />
-            Launch Interview Session
-          </Button>
-
-          <Button variant="secondary" onClick={handleHealthCheck} disabled={loading}>
-            <Activity className="w-5 h-5 text-emerald-400" />
-            {loading ? 'Checking FastAPI...' : 'Test Backend Health'}
-          </Button>
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-semibold mb-6">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>ABTalks AI Interview Agent Hackathon Edition</span>
         </div>
 
-        {/* Backend Health Status Display */}
-        {healthStatus && (
-          <Card className="max-w-md mx-auto text-left space-y-2">
-            <div className="flex items-center space-x-2">
-              <Server className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-semibold text-slate-300">FastAPI Health Response:</span>
-            </div>
-            <pre className="text-xs font-mono bg-slate-950 p-2.5 rounded-lg text-emerald-400 overflow-x-auto">
-              {JSON.stringify(healthStatus, null, 2)}
-            </pre>
-          </Card>
-        )}
-      </section>
+        <h1 className="text-4xl sm:text-6xl font-black text-slate-100 tracking-tight leading-tight max-w-3xl mb-6">
+          Master Full Stack AI Engineering with <span className="gradient-text">Adaptive AI Interviews</span>
+        </h1>
 
-      {/* Feature Cards Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card hover className="space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-slate-800/80 flex items-center justify-center text-emerald-400 border border-slate-700">
-            <Bot className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-white">Modular Architecture</h3>
-          <p className="text-slate-400 text-sm">
-            Clean separation of concerns with React Router layouts, API client services, and FastAPI versioned routers.
-          </p>
-        </Card>
+        <p className="text-base sm:text-lg text-slate-300 max-w-2xl leading-relaxed mb-8">
+          Autonomous technical interviewer that evaluates your React 19, FastAPI, Pydantic, and Agentic AI knowledge in real time.
+        </p>
 
-        <Card hover className="space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-slate-800/80 flex items-center justify-center text-emerald-400 border border-slate-700">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-white">Production Ready</h3>
-          <p className="text-slate-400 text-sm">
-            Configured with pytest backend suite, GitHub Actions CI, ESLint, environment tokens, and CORS middleware.
-          </p>
-        </Card>
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <button
+            onClick={handleStart}
+            disabled={loading}
+            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-base shadow-xl shadow-blue-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+          >
+            <PlayCircle className="w-5 h-5" />
+            <span>{loading ? 'Initializing Session...' : 'Start AI Interview Now'}</span>
+          </button>
 
-        <Card hover className="space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-slate-800/80 flex items-center justify-center text-emerald-400 border border-slate-700">
-            <Zap className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-white">Vite & React 19</h3>
-          <p className="text-slate-400 text-sm">
-            Ultra-fast build setup powered by Vite bundler, React 19 functional components, and custom hooks.
-          </p>
-        </Card>
-      </section>
+          <button
+            onClick={() => navigate('/lobby')}
+            className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 font-semibold text-base border border-slate-700/60 transition-all"
+          >
+            <span>Enter Interview Lobby</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Feature Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {features.map((f, idx) => {
+          const Icon = f.icon;
+          return (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: idx * 0.1 }}
+              className="glass-panel glass-card-hover rounded-2xl p-6 border border-slate-700/40 flex flex-col gap-3"
+            >
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                <Icon className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-100">{f.title}</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">{f.desc}</p>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 };
-
-export default Home;
