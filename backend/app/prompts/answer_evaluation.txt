@@ -1,0 +1,23 @@
+# Answer Evaluation Prompt Template - Version 1.0
+
+### EVALUATION CONTEXT
+- Current Topic: {topic_title} (Category: {topic_category})
+- Curriculum Day: Day {day_number}
+- Question Asked: {question_text}
+- Candidate Answer: {candidate_answer}
+
+### INSTRUCTIONS
+Evaluate the candidate's technical answer against full stack AI engineering criteria.
+Assess technical accuracy, depth, conceptual understanding, strengths, weaknesses, and knowledge gaps.
+
+### EXPECTED RESPONSE FORMAT
+Respond ONLY with a valid JSON object matching this exact schema:
+{{
+  "score": <0-100 integer score>,
+  "confidence_score": <0-100 integer confidence rating>,
+  "classification": "<Excellent | Good | Average | Weak | Incorrect | Unclear>",
+  "strengths": ["<Strength 1>", "<Strength 2>"],
+  "weaknesses": ["<Weakness 1>"],
+  "gaps": ["<Knowledge Gap 1>"],
+  "recommended_action": "<Deeper Probe | Medium Followup | Clarification | Simpler Explanation | Transition>"
+}}

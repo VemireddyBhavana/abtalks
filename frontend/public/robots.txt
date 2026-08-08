@@ -1,0 +1,3 @@
+# Robots.txt for AI Interview Agent
+User-agent: *
+Allow: /

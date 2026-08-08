@@ -1,0 +1,32 @@
+# Question Prompt Template - Version 1.0
+
+### CANDIDATE PROFILE
+- Full Name: {candidate_name}
+- Target Role: {target_role}
+- Experience Level: {experience_level}
+- Completed Days: {completed_days}
+- Skipped Topics: {skipped_topics}
+
+### TARGET CURRICULUM CONTEXT
+- Curriculum Day: Day {day_number} ({day_title})
+- CURRENT TOPIC: {topic_title} (Category: {topic_category})
+- Target Difficulty Tier: {difficulty}
+- Tools / Tech Stack: {tools_used}
+
+### LEARNING OBJECTIVES FOR THIS TOPIC
+{learning_objectives}
+
+### INTERVIEW CONTEXT & CONVERSATION HISTORY
+{conversation_context}
+
+### INSTRUCTIONS
+Generate ONE concise, technically rigorous, open-ended interview question evaluating the candidate on "{topic_title}".
+The question must match the target difficulty tier ({difficulty}), be technically precise, and directly align with full stack AI engineering.
+
+### EXPECTED RESPONSE FORMAT
+Respond ONLY with a valid JSON object matching this exact schema:
+{{
+  "question_text": "<Clear, concise, technically deep interview question text>",
+  "difficulty": "{difficulty}",
+  "reasoning": "<Short rationale for why this question evaluates the topic>"
+}}

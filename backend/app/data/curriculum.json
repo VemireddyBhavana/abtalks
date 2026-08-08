@@ -1,0 +1,163 @@
+{
+  "curriculum_id": "curr_ai_fullstack_2026",
+  "title": "ABTalks Full Stack AI Engineer Curriculum",
+  "version": "1.0.0",
+  "modules": [
+    {
+      "id": "mod_foundations",
+      "title": "Module 1: AI & Engineering Foundations",
+      "description": "Core concepts of full stack web engineering and modern AI development frameworks."
+    },
+    {
+      "id": "mod_agentic_systems",
+      "title": "Module 2: Agentic Systems & Orchestration",
+      "description": "Building autonomous AI agents, tool integration, and conversational memory systems."
+    },
+    {
+      "id": "mod_production",
+      "title": "Module 3: Production Deployment & RAG Systems",
+      "description": "Vector stores, RAG architectures, evaluation scorecards, and cloud deployment."
+    }
+  ],
+  "days": [
+    {
+      "day_number": 1,
+      "module_id": "mod_foundations",
+      "title": "Frontend & API Architecture",
+      "description": "Setting up modern React 19 single-page applications and FastAPI backend microservices.",
+      "topics": [
+        {
+          "id": "top_react_19",
+          "title": "React 19 & Client Routing",
+          "category": "Frontend Architecture"
+        },
+        {
+          "id": "top_fastapi_core",
+          "title": "FastAPI ASGI & OpenAPI Specs",
+          "category": "Backend Development"
+        }
+      ],
+      "learning_objectives": [
+        "Understand SPA routing using React Router v7",
+        "Build modular ASGI services with FastAPI and Uvicorn",
+        "Implement Pydantic schema validation"
+      ],
+      "tools_used": [
+        "React",
+        "Vite",
+        "Tailwind CSS",
+        "FastAPI",
+        "Pydantic"
+      ]
+    },
+    {
+      "day_number": 2,
+      "module_id": "mod_foundations",
+      "title": "State Management & REST Communications",
+      "description": "Axios integration, environment token management, and structured logging.",
+      "topics": [
+        {
+          "id": "top_axios_interceptors",
+          "title": "Axios Request/Response Interceptors",
+          "category": "API Integration"
+        },
+        {
+          "id": "top_pydantic_settings",
+          "title": "Centralized Settings & Environment Parsing",
+          "category": "Backend Configuration"
+        }
+      ],
+      "learning_objectives": [
+        "Configure custom Axios instances with global error handling",
+        "Manage app settings using pydantic-settings"
+      ],
+      "tools_used": [
+        "Axios",
+        "pydantic-settings",
+        "python-dotenv"
+      ]
+    },
+    {
+      "day_number": 3,
+      "module_id": "mod_agentic_systems",
+      "title": "LLM Prompt Engineering & Context Caching",
+      "description": "Designing system prompts, token optimization, and context window management.",
+      "topics": [
+        {
+          "id": "top_system_prompts",
+          "title": "Interviewer Persona & Rubric System Prompts",
+          "category": "AI Engineering"
+        },
+        {
+          "id": "top_context_memory",
+          "title": "In-Memory Buffer & Sliding Window Context",
+          "category": "AI Architecture"
+        }
+      ],
+      "learning_objectives": [
+        "Construct structured evaluation prompt templates",
+        "Manage conversation memory buffers"
+      ],
+      "tools_used": [
+        "Python",
+        "Pydantic",
+        "JSON"
+      ]
+    },
+    {
+      "day_number": 4,
+      "module_id": "mod_agentic_systems",
+      "title": "Autonomous AI Agents & Tool Calling",
+      "description": "Model Context Protocol (MCP), tool schema declaration, and multi-step reasoning.",
+      "topics": [
+        {
+          "id": "top_mcp_tools",
+          "title": "Model Context Protocol (MCP) Integration",
+          "category": "Agent Architecture"
+        },
+        {
+          "id": "top_agent_loops",
+          "title": "ReAct Agent Loops & Tool Execution",
+          "category": "Autonomous Agents"
+        }
+      ],
+      "learning_objectives": [
+        "Declare schema-backed tool interfaces for AI agents",
+        "Implement autonomous step-by-step reasoning loops"
+      ],
+      "tools_used": [
+        "Python",
+        "MCP",
+        "FastAPI"
+      ]
+    },
+    {
+      "day_number": 5,
+      "module_id": "mod_production",
+      "title": "Evaluation, RAG & Cloud Deployment",
+      "description": "Retrieval Augmented Generation, vector embeddings, and cloud deployment pipelines.",
+      "topics": [
+        {
+          "id": "top_rag_embeddings",
+          "title": "RAG Systems & Vector Search",
+          "category": "Information Retrieval"
+        },
+        {
+          "id": "top_cloud_deployment",
+          "title": "Containerized Cloud Deployment (Render / Vercel)",
+          "category": "DevOps & Cloud"
+        }
+      ],
+      "learning_objectives": [
+        "Design document chunking and vector indexing pipelines",
+        "Deploy full-stack AI applications on Vercel and Render"
+      ],
+      "tools_used": [
+        "Vercel",
+        "Render",
+        "Docker",
+        "Python"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# Rubric Scoring Prompt Template - Version 1.0
+
+### RUBRIC EVALUATION CONTEXT
+- Question: {question_text}
+- Answer: {candidate_answer}
+- Target Topic: {topic_title}
+
+### WEIGHTED EVALUATION CRITERIA
+1. Technical Accuracy (Weight 30%)
+2. Concept Coverage (Weight 25%)
+3. Terminology (Weight 15%)
+4. Reasoning (Weight 15%)
+5. Examples (Weight 10%)
+6. Completeness (Weight 5%)
+
+### EXPECTED RESPONSE FORMAT
+Respond ONLY with a valid JSON object matching this exact schema:
+{{
+  "technical_accuracy": <0-100 score>,
+  "concept_coverage": <0-100 score>,
+  "terminology": <0-100 score>,
+  "reasoning": <0-100 score>,
+  "examples": <0-100 score>,
+  "completeness": <0-100 score>
+}}

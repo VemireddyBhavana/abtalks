@@ -1,0 +1,44 @@
+{
+  "candidate_id": "cand_alex_dev_99",
+  "full_name": "Alex Mercer",
+  "email": "alex.mercer@example.com",
+  "target_role": "Full Stack AI Engineer",
+  "experience_level": "Mid-Level",
+  "progress": {
+    "completed_days": [1, 2],
+    "incomplete_days": [3, 4, 5],
+    "total_days": 5,
+    "progress_percentage": 40.0
+  },
+  "completed_topics": [
+    "top_react_19",
+    "top_fastapi_core",
+    "top_axios_interceptors",
+    "top_pydantic_settings"
+  ],
+  "skipped_topics": [],
+  "learning_signals": [
+    {
+      "category": "Strength",
+      "signal": "Strong grasp of FastAPI ASGI architecture and Pydantic validation.",
+      "score": 92
+    },
+    {
+      "category": "Area for Growth",
+      "signal": "Can deepen knowledge of sliding-window context memory buffers and MCP tools.",
+      "score": 75
+    }
+  ],
+  "recent_activity": [
+    {
+      "day_number": 2,
+      "activity_type": "Module Assessment Completed",
+      "timestamp": "2026-08-07T18:30:00Z"
+    },
+    {
+      "day_number": 1,
+      "activity_type": "Project Foundation Submitted",
+      "timestamp": "2026-08-06T14:15:00Z"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+# Interview Context Template - Version 1.0
+Active Session ID: {session_id}
+Current Question Index: {current_question_index}
+Previously Asked Questions:
+{asked_questions_list}

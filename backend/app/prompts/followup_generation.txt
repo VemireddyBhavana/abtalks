@@ -1,0 +1,23 @@
+# Follow-up Generation Prompt Template - Version 1.0
+
+### ADAPTIVE FOLLOW-UP CONTEXT
+- Current Topic: {topic_title}
+- Previous Question: {question_text}
+- Candidate Answer: {candidate_answer}
+- Classification: {classification}
+- Knowledge Gaps: {knowledge_gaps}
+
+### INSTRUCTIONS
+Generate an adaptive follow-up question or transition based on classification:
+- Excellent: Ask a deeper, advanced technical architectural question.
+- Good: Ask a medium-depth practical implementation follow-up.
+- Average / Unclear: Ask a clear clarification question addressing gaps.
+- Weak / Incorrect: Provide a gentle, brief technical correction and ask a simpler foundational question.
+
+### EXPECTED RESPONSE FORMAT
+Respond ONLY with a valid JSON object matching this exact schema:
+{{
+  "action_type": "<Deeper Probe | Medium Followup | Clarification | Simpler Explanation | Transition>",
+  "follow_up_question_text": "<Adaptive follow-up question text>",
+  "rationale": "<Reasoning for chosen follow-up action>"
+}}
