@@ -1,8 +1,6 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from './context/ThemeContext';
-import { InterviewProvider } from './context/InterviewContext';
-import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { Routes, Route } from 'react-router-dom';
+import { AppProvider } from './context/AppProvider';
 import { MainLayout } from './layouts/MainLayout';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
 
@@ -18,28 +16,22 @@ const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.N
 
 export function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <InterviewProvider>
-          <Router>
-            <MainLayout>
-              <Suspense fallback={<LoadingSpinner label="Loading Page..." size="lg" />}>
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/lobby" element={<LobbyPage />} />
-                  <Route path="/interview" element={<SessionPage />} />
-                  <Route path="/loading" element={<LoadingScreen />} />
-                  <Route path="/result" element={<ResultPage />} />
-                  <Route path="/history" element={<HistoryPage />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </MainLayout>
-          </Router>
-        </InterviewProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <AppProvider>
+      <MainLayout>
+        <Suspense fallback={<LoadingSpinner label="Loading Page..." size="lg" />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/lobby" element={<LobbyPage />} />
+            <Route path="/interview" element={<SessionPage />} />
+            <Route path="/loading" element={<LoadingScreen />} />
+            <Route path="/result" element={<ResultPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </MainLayout>
+    </AppProvider>
   );
 }
 
