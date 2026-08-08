@@ -19,6 +19,7 @@ from app.services.curriculum_service import CurriculumService, get_curriculum_se
 from app.services.candidate_service import CandidateService, get_candidate_service
 from app.services.answer_evaluator import AnswerEvaluator
 from app.services.followup_engine import FollowUpEngine
+from app.services.feedback_engine import FeedbackEngine, get_feedback_engine
 from app.exceptions.interview_exception import (
     InterviewAlreadyCompletedError,
     InvalidInterviewStateError,
@@ -32,7 +33,7 @@ class InterviewEngine:
     """
     Main Interview Engine orchestrator.
     Manages session initialization, plan generation, turn execution, answer evaluation,
-    adaptive follow-up generation, and completion tracking.
+    adaptive follow-up generation, and completion feedback report generation.
     """
 
     def __init__(
@@ -41,6 +42,7 @@ class InterviewEngine:
         planner: Optional[InterviewPlanner] = None,
         validator: Optional[InterviewValidator] = None,
         evaluator: Optional[AnswerEvaluator] = None,
+        feedback_engine: Optional[FeedbackEngine] = None,
         curriculum_service: Optional[CurriculumService] = None,
         candidate_service: Optional[CandidateService] = None,
     ):
@@ -48,6 +50,7 @@ class InterviewEngine:
         self.planner = planner or InterviewPlanner()
         self.validator = validator or InterviewValidator()
         self.evaluator = evaluator or AnswerEvaluator()
+        self.feedback_engine = feedback_engine or get_feedback_engine()
         self.curriculum_service = curriculum_service or get_curriculum_service()
         self.candidate_service = candidate_service or get_candidate_service()
         self.state_manager = get_interview_state_manager()
@@ -91,8 +94,8 @@ class InterviewEngine:
 
     def submit_answer(self, session_id: str, answer_text: str) -> AnswerInterviewResponseModel:
         """
-        Records the candidate's answer for the active question, evaluates the answer quality,
-        generates an adaptive follow-up question if applicable, and advances interview state.
+        Records the candidate's answer for the active question, evaluates answer quality,
+        generates adaptive follow-ups, and produces the final FeedbackReportModel upon completion.
         """
         session = self.state_manager.get_session(session_id)
         if not session:
@@ -153,10 +156,13 @@ class InterviewEngine:
                 logger.info(f"Follow-up Injected: Replaced slot {next_slot + 1} with adaptive follow-up '{followup_id}'.")
 
         next_q = self.strategy.determine_next_question(session.plan, session.current_question_index)
+        feedback_report = None
 
         if is_completed:
             msg = "Answer recorded. Interview completed!"
-            logger.info(f"Interview Completed: Session '{session_id}' completed all questions.")
+            logger.info(f"Interview Completed: Session '{session_id}' completed all questions. Generating final feedback report...")
+            # Phase 7: Generate final feedback report
+            feedback_report = self.feedback_engine.generate_feedback_report(session)
         else:
             msg = f"Answer recorded ({evaluation.classification}). Advanced to question {session.current_question_index + 1}."
             if next_q:
@@ -169,6 +175,7 @@ class InterviewEngine:
             current_question_index=session.current_question_index,
             total_questions=len(session.plan.questions),
             next_question=next_q,
+            feedback_report=feedback_report,
         )
 
     def get_current_question(self, session_id: str) -> Optional[QuestionPlaceholderModel]:
@@ -186,10 +193,14 @@ class InterviewEngine:
         return session.to_state_model()
 
     def get_interview_summary(self, session_id: str) -> InterviewSummaryModel:
-        """Returns high-level interview summary metadata."""
+        """Returns high-level interview summary metadata and feedback report if finished."""
         session = self.state_manager.get_session(session_id)
         if not session:
             raise InvalidInterviewStateError(f"Interview session '{session_id}' not found.")
+
+        feedback_report = None
+        if session.done:
+            feedback_report = self.feedback_engine.generate_feedback_report(session)
 
         return InterviewSummaryModel(
             session_id=session.session_id,
@@ -202,6 +213,7 @@ class InterviewEngine:
             started_at=session.started_at,
             completed_at=session.completed_at,
             done=session.done,
+            feedback_report=feedback_report,
         )
 
 

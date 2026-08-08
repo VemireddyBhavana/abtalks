@@ -1,72 +1,80 @@
-from typing import List, Dict, Optional, Any
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
+from app.models.feedback_report import FeedbackReportModel
 
 
 class QuestionPlaceholderModel(BaseModel):
-    id: str = Field(..., description="Unique question identifier e.g. q_day1_react")
-    day_number: int = Field(..., ge=1, description="Curriculum day index")
-    topic_id: str = Field(..., description="Curriculum topic ID")
-    topic_title: str = Field(..., description="Curriculum topic title")
-    question_text: str = Field(..., description="Placeholder question prompt text")
-    difficulty: str = Field(default="Intermediate", description="Question difficulty tier: Fundamental, Intermediate, Advanced")
+    """Placeholder Model representing an interview question."""
+    id: str = Field(description="Unique question identifier")
+    day_number: int = Field(ge=1, description="Curriculum day number (1-indexed)")
+    topic_id: str = Field(description="Associated curriculum topic ID")
+    topic_title: str = Field(description="Associated curriculum topic title")
+    question_text: str = Field(description="The interview question text presented to candidate")
+    difficulty: str = Field(default="Intermediate", description="Difficulty tier: Fundamental | Intermediate | Advanced")
 
 
 class InterviewPlanModel(BaseModel):
-    session_id: str = Field(..., description="Unique session identifier")
-    candidate_id: str = Field(..., description="Candidate ID")
-    created_at: str = Field(..., description="ISO formatted creation timestamp")
-    questions: List[QuestionPlaceholderModel] = Field(..., min_length=8, max_length=8, description="Ordered 8-question sequence")
+    """Model representing an 8-question interview plan covering >=4 curriculum days."""
+    session_id: str = Field(description="Unique session identifier")
+    candidate_id: str = Field(description="Candidate identifier")
+    created_at: str = Field(description="ISO timestamp when plan was generated")
+    questions: List[QuestionPlaceholderModel] = Field(description="List of 8 planned questions")
 
 
 class StartInterviewRequestModel(BaseModel):
-    candidate_id: Optional[str] = Field(default="cand_alex_dev_99", description="Candidate ID to initiate session")
-    session_id: Optional[str] = Field(default=None, description="Optional custom session ID; auto-generated if omitted")
+    """Request model for starting an interview session."""
+    candidate_id: Optional[str] = Field(default="cand_alex_dev_99", description="Target candidate ID")
+    session_id: Optional[str] = Field(default=None, description="Optional custom session ID")
 
 
 class StartInterviewResponseModel(BaseModel):
-    session_id: str = Field(..., description="Unique session identifier")
-    message: str = Field(default="Interview session started successfully.")
-    total_questions: int = Field(default=8, description="Total questions planned")
-    current_question_index: int = Field(default=0, description="Current question zero-based index")
-    question: QuestionPlaceholderModel = Field(..., description="First placeholder question")
+    """Response model after starting an interview session."""
+    session_id: str = Field(description="Active session ID")
+    message: str = Field(description="Status message")
+    total_questions: int = Field(default=8, description="Total planned questions")
+    current_question_index: int = Field(default=0, description="Index of active question (0-indexed)")
+    question: QuestionPlaceholderModel = Field(description="Question 1 model")
 
 
 class AnswerSubmissionModel(BaseModel):
-    session_id: str = Field(..., description="Active session ID")
-    answer_text: str = Field(..., min_length=1, description="Candidate response text")
+    """Request model for submitting an answer."""
+    session_id: str = Field(description="Active session ID")
+    answer_text: str = Field(description="Candidate's technical answer text")
 
 
 class AnswerInterviewResponseModel(BaseModel):
-    session_id: str = Field(..., description="Active session ID")
-    message: str = Field(..., description="Status message")
-    done: bool = Field(..., description="True if interview is completed (after Q8)")
-    current_question_index: int = Field(..., description="Next zero-based question index")
-    total_questions: int = Field(default=8, description="Total questions in plan")
+    """Response model after submitting an answer."""
+    session_id: str = Field(description="Active session ID")
+    message: str = Field(description="Status message")
+    done: bool = Field(description="True if all 8 questions completed")
+    current_question_index: int = Field(description="Active question index")
+    total_questions: int = Field(description="Total planned questions")
     next_question: Optional[QuestionPlaceholderModel] = Field(default=None, description="Next question model (None if done)")
+    feedback_report: Optional[FeedbackReportModel] = Field(default=None, description="Final feedback report (populated when done=true)")
 
 
 class InterviewStateModel(BaseModel):
-    session_id: str
-    candidate_id: str
-    current_question_index: int
-    done: bool
-    total_questions: int
-    asked_question_ids: List[str]
-    candidate_answers: List[Dict[str, Any]]
-    days_covered: List[int]
-    topics_covered: List[str]
-    started_at: str
-    completed_at: Optional[str] = None
+    """Full session state representation model."""
+    session_id: str = Field(description="Active session ID")
+    candidate_id: str = Field(description="Candidate ID")
+    current_question_index: int = Field(description="Current question index")
+    total_questions: int = Field(description="Total questions in plan")
+    done: bool = Field(description="True if session completed")
+    topics_covered: List[str] = Field(default_factory=list)
+    days_covered: List[int] = Field(default_factory=list)
+    candidate_answers: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class InterviewSummaryModel(BaseModel):
-    session_id: str
-    candidate_id: str
-    total_questions_asked: int
-    distinct_days_covered_count: int
-    distinct_topics_covered_count: int
-    days_covered: List[int]
-    topics_covered: List[str]
-    started_at: str
-    completed_at: Optional[str] = None
-    done: bool
+    """High-level interview summary metadata model."""
+    session_id: str = Field(description="Session ID")
+    candidate_id: str = Field(description="Candidate ID")
+    total_questions_asked: int = Field(description="Total questions asked")
+    distinct_days_covered_count: int = Field(description="Number of distinct curriculum days covered")
+    distinct_topics_covered_count: int = Field(description="Number of distinct topics covered")
+    days_covered: List[int] = Field(description="List of covered curriculum day numbers")
+    topics_covered: List[str] = Field(description="List of covered topic IDs")
+    started_at: str = Field(description="ISO timestamp when started")
+    completed_at: Optional[str] = Field(default=None, description="ISO timestamp when completed")
+    done: bool = Field(description="True if session completed")
+    feedback_report: Optional[FeedbackReportModel] = Field(default=None, description="Final feedback report (populated if completed)")

@@ -16,6 +16,14 @@ from app.models.answer_evaluation import (
     AnswerEvaluationModel,
     FollowUpDecisionModel,
 )
+from app.models.feedback_report import (
+    CategoryScoreModel,
+    OverallScoreModel,
+    KnowledgeGapModel,
+    RecommendationModel,
+    FeedbackSummaryModel,
+    FeedbackReportModel,
+)
 
 __all__ = [
     "DayModel",
@@ -35,4 +43,10 @@ __all__ = [
     "ConfidenceMetricsModel",
     "AnswerEvaluationModel",
     "FollowUpDecisionModel",
+    "CategoryScoreModel",
+    "OverallScoreModel",
+    "KnowledgeGapModel",
+    "RecommendationModel",
+    "FeedbackSummaryModel",
+    "FeedbackReportModel",
 ]
