@@ -10,11 +10,12 @@ export const useApi = (apiFunc) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await apiFunc(...args);
-        setData(result);
-        return result;
+        const response = await apiFunc(...args);
+        setData(response);
+        return response;
       } catch (err) {
-        setError(err.message || 'An unexpected error occurred');
+        const msg = err.response?.data?.detail || err.message || 'API operation failed';
+        setError(msg);
         throw err;
       } finally {
         setLoading(false);
@@ -25,5 +26,3 @@ export const useApi = (apiFunc) => {
 
   return { data, loading, error, execute };
 };
-
-export default useApi;
