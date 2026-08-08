@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 500
 
+    # Phase 8 Breeth Memory Settings
+    MEMORY_PROVIDER: str = "mock"  # Options: 'mock', 'breeth'
+    BREETH_API_KEY: str = ""
+    BREETH_PROJECT_ID: str = "abtalks_ai_agent"
+    BREETH_COLLECTION: str = "interview_memories"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

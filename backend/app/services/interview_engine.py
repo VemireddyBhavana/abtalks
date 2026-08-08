@@ -20,6 +20,7 @@ from app.services.candidate_service import CandidateService, get_candidate_servi
 from app.services.answer_evaluator import AnswerEvaluator
 from app.services.followup_engine import FollowUpEngine
 from app.services.feedback_engine import FeedbackEngine, get_feedback_engine
+from app.memory.memory_service import MemoryService, get_memory_service
 from app.exceptions.interview_exception import (
     InterviewAlreadyCompletedError,
     InvalidInterviewStateError,
@@ -33,7 +34,7 @@ class InterviewEngine:
     """
     Main Interview Engine orchestrator.
     Manages session initialization, plan generation, turn execution, answer evaluation,
-    adaptive follow-up generation, and completion feedback report generation.
+    adaptive follow-up generation, final feedback reports, and Breeth Memory persistence.
     """
 
     def __init__(
@@ -43,6 +44,7 @@ class InterviewEngine:
         validator: Optional[InterviewValidator] = None,
         evaluator: Optional[AnswerEvaluator] = None,
         feedback_engine: Optional[FeedbackEngine] = None,
+        memory_service: Optional[MemoryService] = None,
         curriculum_service: Optional[CurriculumService] = None,
         candidate_service: Optional[CandidateService] = None,
     ):
@@ -51,6 +53,7 @@ class InterviewEngine:
         self.validator = validator or InterviewValidator()
         self.evaluator = evaluator or AnswerEvaluator()
         self.feedback_engine = feedback_engine or get_feedback_engine()
+        self.memory_service = memory_service or get_memory_service()
         self.curriculum_service = curriculum_service or get_curriculum_service()
         self.candidate_service = candidate_service or get_candidate_service()
         self.state_manager = get_interview_state_manager()
@@ -60,7 +63,7 @@ class InterviewEngine:
     ) -> StartInterviewResponseModel:
         """
         Starts an interview session, creates an 8-question plan using strategy, validates plan,
-        initializes session state, and returns Question 1.
+        initializes session state, persists session memory, and returns Question 1.
         """
         session_id = session_id or generate_unique_id("session")
         logger.info(f"Interview Created: Initiating session '{session_id}' for candidate '{candidate_id}'.")
@@ -77,6 +80,12 @@ class InterviewEngine:
         logger.info(f"Validation Passed: Pre-flight plan validation succeeded for session '{session_id}'.")
 
         session = self.state_manager.create_session(session_id, candidate_id, plan)
+
+        # Phase 8: Initialize session memory
+        try:
+            self.memory_service.initialize_session_memory(session)
+        except Exception as e:
+            logger.error(f"Memory failure: Failed to initialize session memory: {e}")
 
         first_question = self.strategy.determine_next_question(plan, session.current_question_index)
         if not first_question:
@@ -95,7 +104,7 @@ class InterviewEngine:
     def submit_answer(self, session_id: str, answer_text: str) -> AnswerInterviewResponseModel:
         """
         Records the candidate's answer for the active question, evaluates answer quality,
-        generates adaptive follow-ups, and produces the final FeedbackReportModel upon completion.
+        generates adaptive follow-ups, persists turn memory, and produces final FeedbackReportModel upon completion.
         """
         session = self.state_manager.get_session(session_id)
         if not session:
@@ -138,6 +147,24 @@ class InterviewEngine:
             turn_count_on_topic=1 if "followup" not in active_q.id else 2,
         )
 
+        # Phase 8: Record turn answer in persistent memory
+        try:
+            self.memory_service.record_turn_memory(
+                session=session,
+                question_id=active_q.id,
+                topic_id=active_q.topic_id,
+                topic_title=active_q.topic_title,
+                question_text=active_q.question_text,
+                candidate_answer=answer_text,
+                score=evaluation.score,
+                classification=evaluation.classification,
+                confidence_score=evaluation.confidence_score,
+                action_type=followup_decision.action_type,
+                difficulty=active_q.difficulty,
+            )
+        except Exception as e:
+            logger.error(f"Memory failure: Failed to record turn memory: {e}")
+
         # If adaptive follow-up is requested and session is not completed, replace next question slot
         if followup_decision.follow_up_question_text and not followup_decision.topic_transition and not is_completed:
             followup_id = f"q_followup_{active_q.id}"
@@ -163,6 +190,12 @@ class InterviewEngine:
             logger.info(f"Interview Completed: Session '{session_id}' completed all questions. Generating final feedback report...")
             # Phase 7: Generate final feedback report
             feedback_report = self.feedback_engine.generate_feedback_report(session)
+
+            # Phase 8: Record final feedback report in persistent memory
+            try:
+                self.memory_service.record_feedback_memory(session_id, feedback_report)
+            except Exception as e:
+                logger.error(f"Memory failure: Failed to record final feedback memory: {e}")
         else:
             msg = f"Answer recorded ({evaluation.classification}). Advanced to question {session.current_question_index + 1}."
             if next_q:
