@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppProvider';
 import { MainLayout } from './layouts/MainLayout';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
+import { RequireSession, RequireCompletedInterview } from './components/common/RouteGuards';
 
 // Lazy loaded page components
 const HomePage = lazy(() => import('./features/home/HomePage').then(m => ({ default: m.HomePage })));
@@ -23,9 +24,23 @@ export function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/lobby" element={<LobbyPage />} />
-            <Route path="/interview" element={<SessionPage />} />
+            <Route
+              path="/interview"
+              element={
+                <RequireSession>
+                  <SessionPage />
+                </RequireSession>
+              }
+            />
             <Route path="/loading" element={<LoadingScreen />} />
-            <Route path="/result" element={<ResultPage />} />
+            <Route
+              path="/result"
+              element={
+                <RequireCompletedInterview>
+                  <ResultPage />
+                </RequireCompletedInterview>
+              }
+            />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,16 +1,27 @@
 import React from 'react';
 import { useInterview } from '../../context/InterviewContext';
-import { User, Activity } from 'lucide-react';
+import { User, Activity, AlertCircle } from 'lucide-react';
 
 export const Navbar = () => {
-  const { candidate } = useInterview();
+  const { candidate, isBackendHealthy } = useInterview();
 
   return (
     <header className="hidden lg:flex items-center justify-between px-8 py-4 glass-panel border-b border-slate-800/80 sticky top-0 z-30">
       <div className="flex items-center gap-3">
-        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-        <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-          System Status: Online & Ready
+        <span
+          className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+            isBackendHealthy ? 'bg-emerald-400' : 'bg-rose-400'
+          }`}
+        />
+        <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          {isBackendHealthy ? (
+            'FastAPI Engine: Online'
+          ) : (
+            <span className="text-rose-400 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              FastAPI Engine: Offline
+            </span>
+          )}
         </span>
       </div>
 
