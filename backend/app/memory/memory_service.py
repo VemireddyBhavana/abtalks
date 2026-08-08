@@ -1,12 +1,15 @@
 from typing import Optional, List, Dict, Any
-from app.memory.memory_repository import AbstractMemoryRepository
-from app.memory.memory_factory import MemoryFactory
+from app.repositories.memory_repository import MemoryRepository
 from app.memory.memory_cache import MemoryCache
 from app.memory.memory_validator import MemoryValidator
 from app.memory.memory_serializer import MemorySerializer
 from app.memory.memory_migration import MemoryMigrationManager
 from app.memory.memory_metrics import get_memory_metrics, MemoryMetricsTracker
 from app.memory.memory_retry_manager import MemoryRetryManager
+from app.memory.session_snapshot import SessionSnapshotManager
+from app.memory.memory_search import MemorySearchEngine
+from app.memory.retention_manager import DataRetentionManager
+from app.memory.memory_security import MemorySecurity
 from app.memory.memory_models import (
     InterviewMemory,
     SessionMemory,
@@ -24,25 +27,30 @@ from app.core.logging_config import logger
 class MemoryService:
     """
     Production-grade Service Layer for managing persistent interview memories.
-    Combines Repository Pattern, In-Memory Caching, Schema Validation, Migration, Serialization,
-    Exponential Backoff Retries, and Telemetry Metrics.
+    Communicates with MemoryRepository (decoupled from providers) and integrates
+    MemoryCache, MemoryValidator, SessionSnapshotManager, MemorySearchEngine,
+    DataRetentionManager, MemorySecurity, and Telemetry Metrics.
     """
 
     def __init__(
         self,
-        repository: Optional[AbstractMemoryRepository] = None,
+        repository: Optional[MemoryRepository] = None,
         cache: Optional[MemoryCache] = None,
+        snapshot_manager: Optional[SessionSnapshotManager] = None,
+        retention_manager: Optional[DataRetentionManager] = None,
         metrics_tracker: Optional[MemoryMetricsTracker] = None,
         candidate_service: Optional[CandidateService] = None,
     ):
-        self.repository = repository or MemoryFactory.create_provider()
+        self.repository = repository or MemoryRepository()
         self.cache = cache or MemoryCache()
+        self.snapshot_manager = snapshot_manager or SessionSnapshotManager()
+        self.retention_manager = retention_manager or DataRetentionManager()
         self.metrics_tracker = metrics_tracker or get_memory_metrics()
         self.candidate_service = candidate_service or get_candidate_service()
 
     def initialize_session_memory(self, session: InterviewSessionState) -> InterviewMemory:
         """
-        Creates, validates, caches, and persists initial InterviewMemory document upon session start.
+        Creates, validates, caches, snapshots, and persists initial InterviewMemory document upon session start.
         """
         candidate = self.candidate_service.get_candidate()
 
@@ -77,13 +85,22 @@ class MemoryService:
         # Pre-flight Validation
         MemoryValidator.validate(memory)
 
+        # Snapshot Milestone
+        self.snapshot_manager.create_snapshot(session.session_id, "Interview started", memory)
+
+        # Encrypt sensitive fields before persistence
+        sec_memory = MemorySecurity.encrypt_sensitive_fields(memory)
+
         # Persist via RetryManager & Repository
-        MemoryRetryManager.execute_with_retry(lambda: self.repository.save(memory))
-        self.cache.put(memory.memory_id, memory)
+        MemoryRetryManager.execute_with_retry(lambda: self.repository.save(sec_memory))
+        
+        # Cache plaintext in memory
+        plain_memory = MemorySecurity.decrypt_sensitive_fields(sec_memory)
+        self.cache.put(memory.memory_id, plain_memory)
         self.metrics_tracker.record_write()
 
-        logger.info(f"Memory write: Session memory initialized and cached for '{session.session_id}'.")
-        return memory
+        logger.info(f"Memory write: Session memory initialized for '{session.session_id}'.")
+        return plain_memory
 
     def record_turn_memory(
         self,
@@ -127,12 +144,19 @@ class MemoryService:
         mem.updated_at = get_utc_now()
 
         MemoryValidator.validate(mem)
-        MemoryRetryManager.execute_with_retry(lambda: self.repository.update(session.session_id, mem))
-        self.cache.put(session.session_id, mem)
+        
+        # Create Snapshot Milestone
+        self.snapshot_manager.create_snapshot(session.session_id, "Question answered", mem)
+
+        sec_memory = MemorySecurity.encrypt_sensitive_fields(mem)
+        MemoryRetryManager.execute_with_retry(lambda: self.repository.update(session.session_id, sec_memory))
+        
+        plain_memory = MemorySecurity.decrypt_sensitive_fields(sec_memory)
+        self.cache.put(session.session_id, plain_memory)
         self.metrics_tracker.record_update()
 
         logger.info(f"Memory update: Recorded turn {turn_index + 1} memory for session '{session.session_id}'.")
-        return mem
+        return plain_memory
 
     def record_feedback_memory(
         self, session_id: str, feedback_report: FeedbackReportModel
@@ -156,12 +180,19 @@ class MemoryService:
         mem.updated_at = get_utc_now()
 
         MemoryValidator.validate(mem)
-        MemoryRetryManager.execute_with_retry(lambda: self.repository.update(session_id, mem))
-        self.cache.put(session_id, mem)
+        
+        # Create Snapshot Milestone
+        self.snapshot_manager.create_snapshot(session_id, "Interview finished", mem)
+
+        sec_memory = MemorySecurity.encrypt_sensitive_fields(mem)
+        MemoryRetryManager.execute_with_retry(lambda: self.repository.update(session_id, sec_memory))
+        
+        plain_memory = MemorySecurity.decrypt_sensitive_fields(sec_memory)
+        self.cache.put(session_id, plain_memory)
         self.metrics_tracker.record_update()
 
         logger.info(f"Memory update: Attached final feedback report to memory '{session_id}'.")
-        return mem
+        return plain_memory
 
     def get_session_memory(self, session_id: str) -> Optional[InterviewMemory]:
         """
@@ -175,18 +206,41 @@ class MemoryService:
         mem = self.repository.find_by_id(session_id)
         self.metrics_tracker.record_read(hit_cache=False)
         if mem:
-            # Handle migration check
+            # Migration check
             payload = MemorySerializer.serialize(mem)
             migrated_payload = MemoryMigrationManager.migrate_if_needed(payload)
             migrated_mem = MemorySerializer.deserialize(migrated_payload)
-            self.cache.put(session_id, migrated_mem)
-            return migrated_mem
+            
+            plain_mem = MemorySecurity.decrypt_sensitive_fields(migrated_mem)
+            self.cache.put(session_id, plain_mem)
+            return plain_mem
 
         return None
 
     def search_candidate_history(self, candidate_id: str) -> List[InterviewMemory]:
         """Retrieves all past interview memories for a candidate."""
-        return self.repository.search_by_keyword(candidate_id)
+        raw_results = self.repository.search_by_keyword(candidate_id)
+        retained = self.retention_manager.apply_retention_policy(raw_results)
+        return [MemorySecurity.decrypt_sensitive_fields(m) for m in retained]
+
+    def filter_memories(
+        self,
+        session_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        topic_title: Optional[str] = None,
+        day_number: Optional[int] = None,
+        classification: Optional[str] = None,
+    ) -> List[InterviewMemory]:
+        """Multi-criteria search filtering using MemorySearchEngine."""
+        raw_results = self.repository.search_by_keyword(candidate_id or "")
+        return MemorySearchEngine.filter_memories(
+            memories=raw_results,
+            session_id=session_id,
+            candidate_id=candidate_id,
+            topic_title=topic_title,
+            day_number=day_number,
+            classification=classification,
+        )
 
 
 # Singleton helper

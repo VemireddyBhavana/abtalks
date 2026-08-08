@@ -42,6 +42,7 @@ class MockMemoryProvider(AbstractMemoryRepository):
             if (
                 query_lower in mem.session.session_id.lower()
                 or query_lower in mem.candidate.candidate_id.lower()
+                or query_lower in mem.candidate.full_name.lower()
                 or any(query_lower in t.topic_title.lower() for t in mem.turns)
             ):
                 results.append(mem)
