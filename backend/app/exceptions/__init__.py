@@ -28,6 +28,10 @@ from app.exceptions.memory_exception import (
     MemoryWriteError,
     MemoryConnectionError,
     MemoryCredentialsMissingError,
+    MemoryValidationError,
+    MemoryMigrationError,
+    MemoryCacheError,
+    MemoryRetryExhaustedError,
 )
 
 __all__ = [
@@ -52,4 +56,8 @@ __all__ = [
     "MemoryWriteError",
     "MemoryConnectionError",
     "MemoryCredentialsMissingError",
+    "MemoryValidationError",
+    "MemoryMigrationError",
+    "MemoryCacheError",
+    "MemoryRetryExhaustedError",
 ]

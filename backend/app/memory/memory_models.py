@@ -51,6 +51,7 @@ class InterviewMemory(BaseModel):
     Root Interview Memory document representing complete persistent interview state.
     """
     memory_id: str = Field(description="Unique memory document ID")
+    schema_version: str = Field(default="1.0.0", description="Memory schema version")
     session: SessionMemory = Field(description="Session metadata memory")
     candidate: CandidateMemory = Field(description="Candidate profile memory")
     turns: List[EvaluationMemory] = Field(default_factory=list, description="All turn evaluations")

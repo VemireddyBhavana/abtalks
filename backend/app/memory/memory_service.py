@@ -1,6 +1,12 @@
 from typing import Optional, List, Dict, Any
-from app.memory.memory_provider import AbstractMemoryProvider
+from app.memory.memory_repository import AbstractMemoryRepository
 from app.memory.memory_factory import MemoryFactory
+from app.memory.memory_cache import MemoryCache
+from app.memory.memory_validator import MemoryValidator
+from app.memory.memory_serializer import MemorySerializer
+from app.memory.memory_migration import MemoryMigrationManager
+from app.memory.memory_metrics import get_memory_metrics, MemoryMetricsTracker
+from app.memory.memory_retry_manager import MemoryRetryManager
 from app.memory.memory_models import (
     InterviewMemory,
     SessionMemory,
@@ -17,22 +23,26 @@ from app.core.logging_config import logger
 
 class MemoryService:
     """
-    Service Layer for managing persistent interview memories across sessions.
-    Provides methods to store session metadata, questions, candidate answers, evaluations,
-    knowledge gaps, and final feedback reports.
+    Production-grade Service Layer for managing persistent interview memories.
+    Combines Repository Pattern, In-Memory Caching, Schema Validation, Migration, Serialization,
+    Exponential Backoff Retries, and Telemetry Metrics.
     """
 
     def __init__(
         self,
-        provider: Optional[AbstractMemoryProvider] = None,
+        repository: Optional[AbstractMemoryRepository] = None,
+        cache: Optional[MemoryCache] = None,
+        metrics_tracker: Optional[MemoryMetricsTracker] = None,
         candidate_service: Optional[CandidateService] = None,
     ):
-        self.provider = provider or MemoryFactory.create_provider()
+        self.repository = repository or MemoryFactory.create_provider()
+        self.cache = cache or MemoryCache()
+        self.metrics_tracker = metrics_tracker or get_memory_metrics()
         self.candidate_service = candidate_service or get_candidate_service()
 
     def initialize_session_memory(self, session: InterviewSessionState) -> InterviewMemory:
         """
-        Creates and stores initial InterviewMemory document upon session start.
+        Creates, validates, caches, and persists initial InterviewMemory document upon session start.
         """
         candidate = self.candidate_service.get_candidate()
 
@@ -64,8 +74,15 @@ class MemoryService:
             updated_at=get_utc_now(),
         )
 
-        self.provider.save_memory(memory)
-        logger.info(f"Memory write: Session memory initialized for '{session.session_id}'.")
+        # Pre-flight Validation
+        MemoryValidator.validate(memory)
+
+        # Persist via RetryManager & Repository
+        MemoryRetryManager.execute_with_retry(lambda: self.repository.save(memory))
+        self.cache.put(memory.memory_id, memory)
+        self.metrics_tracker.record_write()
+
+        logger.info(f"Memory write: Session memory initialized and cached for '{session.session_id}'.")
         return memory
 
     def record_turn_memory(
@@ -85,7 +102,7 @@ class MemoryService:
         """
         Appends turn answer and evaluation result to persistent memory.
         """
-        mem = self.provider.get_memory(session.session_id)
+        mem = self.get_session_memory(session.session_id)
         if not mem:
             mem = self.initialize_session_memory(session)
 
@@ -109,7 +126,11 @@ class MemoryService:
         mem.session.done = session.done
         mem.updated_at = get_utc_now()
 
-        self.provider.update_memory(session.session_id, mem)
+        MemoryValidator.validate(mem)
+        MemoryRetryManager.execute_with_retry(lambda: self.repository.update(session.session_id, mem))
+        self.cache.put(session.session_id, mem)
+        self.metrics_tracker.record_update()
+
         logger.info(f"Memory update: Recorded turn {turn_index + 1} memory for session '{session.session_id}'.")
         return mem
 
@@ -119,7 +140,7 @@ class MemoryService:
         """
         Stores final completed feedback report in persistent memory.
         """
-        mem = self.provider.get_memory(session_id)
+        mem = self.get_session_memory(session_id)
         if not mem:
             logger.warning(f"Memory failure: Cannot attach feedback report to missing memory '{session_id}'.")
             return None
@@ -134,17 +155,38 @@ class MemoryService:
         )
         mem.updated_at = get_utc_now()
 
-        self.provider.update_memory(session_id, mem)
+        MemoryValidator.validate(mem)
+        MemoryRetryManager.execute_with_retry(lambda: self.repository.update(session_id, mem))
+        self.cache.put(session_id, mem)
+        self.metrics_tracker.record_update()
+
         logger.info(f"Memory update: Attached final feedback report to memory '{session_id}'.")
         return mem
 
     def get_session_memory(self, session_id: str) -> Optional[InterviewMemory]:
-        """Retrieves session memory document by ID."""
-        return self.provider.get_memory(session_id)
+        """
+        Retrieves session memory document by ID (checking Cache first, then Repository).
+        """
+        cached = self.cache.get(session_id)
+        if cached:
+            self.metrics_tracker.record_read(hit_cache=True)
+            return cached
+
+        mem = self.repository.find_by_id(session_id)
+        self.metrics_tracker.record_read(hit_cache=False)
+        if mem:
+            # Handle migration check
+            payload = MemorySerializer.serialize(mem)
+            migrated_payload = MemoryMigrationManager.migrate_if_needed(payload)
+            migrated_mem = MemorySerializer.deserialize(migrated_payload)
+            self.cache.put(session_id, migrated_mem)
+            return migrated_mem
+
+        return None
 
     def search_candidate_history(self, candidate_id: str) -> List[InterviewMemory]:
         """Retrieves all past interview memories for a candidate."""
-        return self.provider.search_memory(candidate_id)
+        return self.repository.search_by_keyword(candidate_id)
 
 
 # Singleton helper
