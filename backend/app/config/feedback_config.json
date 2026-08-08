@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "summary_settings": {
+    "include_highlights": true,
+    "include_improvement_areas": true,
+    "max_highlights": 5,
+    "max_improvement_areas": 5
+  },
+  "recommendation_limits": {
+    "max_recommendations": 10,
+    "min_recommendations": 1
+  },
+  "report_sections": [
+    "overall_score",
+    "strengths",
+    "weaknesses",
+    "knowledge_gaps",
+    "topics_covered",
+    "curriculum_coverage",
+    "recommendations",
+    "summary"
+  ],
+  "thresholds": {
+    "exceptional_score": 90,
+    "strong_score": 80,
+    "proficient_score": 70,
+    "developing_score": 60
+  }
+}

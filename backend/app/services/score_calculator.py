@@ -33,35 +33,27 @@ class ScoreCalculator:
         weights = cls._load_weights()
         logger.info("Score Calculation Started: Computing category breakdown and weighted scores...")
 
-        if not turn_answers:
-            return OverallScoreModel(
-                overall_score=0.0,
-                grade="F",
-                rating_label="Unevaluated",
-                breakdown=[],
-            )
-
         evals = [turn.get("evaluation", {}) for turn in turn_answers if turn.get("evaluation")]
         
         # Raw metric aggregates
-        avg_score = sum(e.get("score", 70) for e in evals) / len(evals) if evals else 70.0
-        avg_conf = sum(e.get("confidence_score", 70) for e in evals) / len(evals) if evals else 70.0
+        avg_score = sum(e.get("score", 0.0) for e in evals) / len(evals) if evals else 0.0
+        avg_conf = sum(e.get("confidence_score", 0.0) for e in evals) / len(evals) if evals else 0.0
         
         rubrics = [e.get("rubric", {}) for e in evals if e.get("rubric")]
-        tech_acc = sum(r.get("technical_accuracy", 75) for r in rubrics) / len(rubrics) if rubrics else 75.0
-        concept_cov = sum(r.get("concept_coverage", 75) for r in rubrics) / len(rubrics) if rubrics else 75.0
-        reasoning = sum(r.get("reasoning", 70) for r in rubrics) / len(rubrics) if rubrics else 70.0
+        tech_acc = sum(r.get("technical_accuracy", 0.0) for r in rubrics) / len(rubrics) if rubrics else 0.0
+        concept_cov = sum(r.get("concept_coverage", 0.0) for r in rubrics) / len(rubrics) if rubrics else 0.0
+        reasoning = sum(r.get("reasoning", 0.0) for r in rubrics) / len(rubrics) if rubrics else 0.0
         
         metrics_list = [e.get("metrics", {}) for e in evals if e.get("metrics")]
-        comm_clarity = sum(m.get("communication_clarity", 80) for m in metrics_list) / len(metrics_list) if metrics_list else 80.0
+        comm_clarity = sum(m.get("communication_clarity", 0.0) for m in metrics_list) / len(metrics_list) if metrics_list else 0.0
 
-        # Consistency metric (lower variance -> higher consistency)
-        scores_list = [e.get("score", 70) for e in evals]
+        # Consistency metric
+        scores_list = [e.get("score", 0.0) for e in evals]
         variance = sum((s - avg_score) ** 2 for s in scores_list) / len(scores_list) if scores_list else 0.0
-        consistency = max(40.0, 100.0 - (variance ** 0.5))
+        consistency = max(0.0, 100.0 - (variance ** 0.5)) if evals else 0.0
 
         # Difficulty handling metric
-        diff_handling = min(100.0, avg_score + 5.0)
+        diff_handling = min(100.0, avg_score + 5.0) if evals else 0.0
 
         categories = [
             ("Technical Accuracy", tech_acc, weights.get("technical_accuracy", 0.25)),
@@ -100,8 +92,10 @@ class ScoreCalculator:
             grade, rating = "B", "Proficient"
         elif final_score >= 60:
             grade, rating = "C", "Developing"
-        else:
+        elif evals:
             grade, rating = "F", "Needs Revision"
+        else:
+            grade, rating = "F", "Unevaluated"
 
         logger.info(f"Score calculation completed: Overall Score {final_score}/100 (Grade {grade}, '{rating}').")
 

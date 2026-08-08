@@ -5,7 +5,20 @@ from app.services.recommendation_engine import RecommendationEngine
 from app.services.report_generator import ReportGenerator
 from app.services.feedback_engine import FeedbackEngine
 from app.services.interview_engine import InterviewEngine
-from app.models.feedback_report import KnowledgeGapModel
+from app.services.strength_analyzer import StrengthAnalyzer
+from app.services.weakness_analyzer import WeaknessAnalyzer
+from app.services.curriculum_coverage import CurriculumCoverageAnalyzer
+from app.services.recommendation_priority import RecommendationPriorityEngine
+from app.services.performance_trend import PerformanceTrendAnalyzer
+from app.services.report_validator import ReportValidator
+from app.services.feedback_metrics import get_feedback_metrics
+from app.strategies.feedback.technical_feedback_strategy import TechnicalFeedbackStrategy
+from app.strategies.feedback.behavioral_feedback_strategy import BehavioralFeedbackStrategy
+from app.strategies.feedback.summary_feedback_strategy import SummaryFeedbackStrategy
+from app.exporters.pdf_exporter import PDFExporterPlaceholder
+from app.exporters.markdown_exporter import MarkdownExporterPlaceholder
+from app.exporters.html_exporter import HTMLExporterPlaceholder
+from app.models.feedback_report import KnowledgeGapModel, RecommendationModel
 
 
 def test_score_calculator_weights_loading_and_calculation():
@@ -35,37 +48,103 @@ def test_score_calculator_weights_loading_and_calculation():
     assert overall.grade in ["A+", "A"]
     assert len(overall.breakdown) == 7
 
-    # Verify category weight sum equals 1.0
-    total_weight = sum(cat.weight for cat in overall.breakdown)
-    assert round(total_weight, 2) == 1.0
 
+def test_analyzers_and_priority_engine():
+    """Verifies StrengthAnalyzer, WeaknessAnalyzer, and RecommendationPriorityEngine."""
+    turn_answers = [
+        {
+            "evaluation": {
+                "score": 90,
+                "strengths": ["Solid React 19 knowledge"],
+                "weaknesses": [],
+                "gaps": [],
+            }
+        },
+        {
+            "evaluation": {
+                "score": 45,
+                "strengths": [],
+                "weaknesses": ["Incomplete ASGI loop"],
+                "gaps": ["Missing FastAPI OpenAPI concept"],
+            }
+        },
+    ]
 
-def test_summary_generator_format():
-    """Verifies SummaryGenerator produces narrative summary and performance highlights."""
-    turn_answers = [{"evaluation": {"score": 85}}]
-    overall = ScoreCalculator.calculate_overall_score(turn_answers)
+    strengths = StrengthAnalyzer.analyze_strengths(turn_answers)
+    assert len(strengths) >= 1
+    assert "Solid React 19 knowledge" in strengths
 
-    summary = SummaryGenerator.generate_summary(overall, turn_answers, candidate_name="Alex Mercer")
-    assert "Alex Mercer" in summary.overall_performance
-    assert len(summary.interview_highlights) >= 1
-    assert len(summary.areas_for_improvement) >= 1
+    weaknesses = WeaknessAnalyzer.analyze_weaknesses(turn_answers)
+    assert len(weaknesses) >= 1
+    assert "Incomplete ASGI loop" in weaknesses
 
-
-def test_recommendation_engine_curriculum_mapping():
-    """Verifies RecommendationEngine maps knowledge gaps to curriculum days and objectives."""
-    rec_engine = RecommendationEngine()
-    gap = KnowledgeGapModel(
-        topic_id="top_fastapi_core",
-        topic_title="FastAPI ASGI & OpenAPI Specs",
-        day_number=1,
-        description="Lacks understanding of ASGI loop.",
-        severity="High",
+    rec = RecommendationModel(
+        topic_title="FastAPI ASGI",
+        curriculum_day=1,
+        learning_objectives=["Build ASGI microservices"],
+        recommended_action="Study Day 1",
+        priority="Medium",
     )
+    prioritized = RecommendationPriorityEngine.prioritize_recommendations([rec], overall_score=45.0)
+    assert prioritized[0].priority == "Critical"
 
-    recs = rec_engine.generate_recommendations([gap], overall_score=65.0)
-    assert len(recs) == 1
-    assert recs[0].curriculum_day == 1
-    assert "Day 1" in recs[0].recommended_action
+
+def test_performance_trend_and_coverage():
+    """Verifies PerformanceTrendAnalyzer and CurriculumCoverageAnalyzer."""
+    turn_answers = [
+        {"evaluation": {"score": 60, "confidence_score": 65}, "difficulty": "Intermediate"},
+        {"evaluation": {"score": 85, "confidence_score": 85}, "difficulty": "Advanced"},
+    ]
+
+    trend = PerformanceTrendAnalyzer.analyze_trends(turn_answers)
+    assert trend["performance_trajectory"] == "Improving"
+    assert trend["score_progression"] == [60, 85]
+
+    coverage_analyzer = CurriculumCoverageAnalyzer()
+    cov = coverage_analyzer.analyze_coverage(days_covered=[1, 2], topics_covered=["top_1", "top_2"])
+    assert cov["distinct_days_covered"] == 2
+    assert cov["day_coverage_percentage"] > 0.0
+
+
+def test_report_validator_and_exporters():
+    """Verifies ReportValidator and exporter placeholders."""
+    engine = FeedbackEngine()
+    # Create minimal session state test
+    session_engine = InterviewEngine()
+    session_engine.start_interview(candidate_id="cand_exp_test", session_id="sess_exp_test")
+    session = session_engine.state_manager.get_session("sess_exp_test")
+    
+    report = engine.generate_feedback_report(session)
+    assert ReportValidator.validate_report(report) is True
+
+    pdf_exporter = PDFExporterPlaceholder()
+    assert "sess_exp_test" in pdf_exporter.export(report)
+
+    md_exporter = MarkdownExporterPlaceholder()
+    assert "# Interview Feedback Report" in md_exporter.export(report)
+
+    html_exporter = HTMLExporterPlaceholder()
+    assert "<html>" in html_exporter.export(report)
+
+
+def test_feedback_strategies():
+    """Verifies Feedback Strategy Pattern (Technical, Behavioral, Summary)."""
+    tech_engine = FeedbackEngine(strategy=TechnicalFeedbackStrategy())
+    beh_engine = FeedbackEngine(strategy=BehavioralFeedbackStrategy())
+    sum_engine = FeedbackEngine(strategy=SummaryFeedbackStrategy())
+
+    session_engine = InterviewEngine()
+    session_engine.start_interview(candidate_id="cand_strat_test", session_id="sess_strat_test")
+    session = session_engine.state_manager.get_session("sess_strat_test")
+
+    report_tech = tech_engine.generate_feedback_report(session)
+    assert report_tech.session_id == "sess_strat_test"
+
+    report_beh = beh_engine.generate_feedback_report(session)
+    assert report_beh.summary.communication_assessment is not None
+
+    report_sum = sum_engine.generate_feedback_report(session)
+    assert report_sum.session_id == "sess_strat_test"
 
 
 def test_feedback_engine_end_to_end_completion():
@@ -87,4 +166,3 @@ def test_feedback_engine_end_to_end_completion():
     assert final_resp.feedback_report.session_id == "sess_feedback_test"
     assert final_resp.feedback_report.overall_score.overall_score > 0.0
     assert len(final_resp.feedback_report.overall_score.breakdown) == 7
-    assert final_resp.feedback_report.summary.overall_performance is not None

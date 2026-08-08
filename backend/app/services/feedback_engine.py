@@ -1,90 +1,62 @@
-from typing import Optional, List, Dict, Any
-from app.models.feedback_report import FeedbackReportModel, KnowledgeGapModel
+import time
+from typing import Optional
+from app.models.feedback_report import FeedbackReportModel
 from app.services.interview_state import InterviewSessionState
-from app.services.score_calculator import ScoreCalculator
-from app.services.summary_generator import SummaryGenerator
-from app.services.recommendation_engine import RecommendationEngine, get_recommendation_engine
-from app.services.report_generator import ReportGenerator
-from app.services.candidate_service import CandidateService, get_candidate_service
+from app.strategies.feedback.base_feedback_strategy import AbstractFeedbackStrategy
+from app.strategies.feedback.technical_feedback_strategy import TechnicalFeedbackStrategy
+from app.services.strength_analyzer import StrengthAnalyzer
+from app.services.weakness_analyzer import WeaknessAnalyzer
+from app.services.recommendation_priority import RecommendationPriorityEngine
+from app.services.report_validator import ReportValidator
+from app.services.feedback_metrics import get_feedback_metrics, FeedbackMetricsTracker
 from app.core.logging_config import logger
 
 
 class FeedbackEngine:
     """
-    Main Feedback & Scoring Engine orchestrator.
-    Collects turn history, evaluation history, knowledge gaps, question difficulties, and topics covered,
-    and produces one final structured FeedbackReportModel JSON.
+    Production-grade Feedback & Scoring Engine using Strategy Pattern, Analyzers,
+    Recommendation Priority Engine, Report Validator, and Metrics Tracker.
     """
 
     def __init__(
         self,
-        recommendation_engine: Optional[RecommendationEngine] = None,
-        candidate_service: Optional[CandidateService] = None,
+        strategy: Optional[AbstractFeedbackStrategy] = None,
+        metrics_tracker: Optional[FeedbackMetricsTracker] = None,
     ):
-        self.recommendation_engine = recommendation_engine or get_recommendation_engine()
-        self.candidate_service = candidate_service or get_candidate_service()
+        self.strategy = strategy or TechnicalFeedbackStrategy()
+        self.metrics_tracker = metrics_tracker or get_feedback_metrics()
 
     def generate_feedback_report(self, session: InterviewSessionState) -> FeedbackReportModel:
         """
-        Generates final structured FeedbackReportModel for completed interview session.
+        Generates a validated structured FeedbackReportModel for a completed session.
         """
-        logger.info(f"Report generation started: Initiating report generation for session '{session.session_id}'...")
+        start_time = time.time()
+        logger.info(f"Feedback generation started: Initiating report for session '{session.session_id}'...")
 
-        candidate = self.candidate_service.get_candidate()
-        turn_answers = session.candidate_answers
+        # 1. Generate base report using Strategy
+        report = self.strategy.generate_report(session)
+        logger.info(f"Score calculated: Overall Score {report.overall_score.overall_score}/100.")
 
-        # 1. Calculate category and overall weighted scores
-        overall_score = ScoreCalculator.calculate_overall_score(turn_answers)
+        # 2. Enrich strengths & weaknesses via analyzers
+        report.strengths = StrengthAnalyzer.analyze_strengths(session.candidate_answers)
+        report.weaknesses = WeaknessAnalyzer.analyze_weaknesses(session.candidate_answers)
+        logger.info("Summary generated: Analyzed strengths and growth areas.")
 
-        # 2. Extract strengths, weaknesses, and knowledge gaps across turns
-        strengths: List[str] = []
-        weaknesses: List[str] = []
-        knowledge_gaps: List[KnowledgeGapModel] = []
-
-        for turn in turn_answers:
-            eval_data = turn.get("evaluation", {})
-            strengths.extend(eval_data.get("strengths", []))
-            weaknesses.extend(eval_data.get("weaknesses", []))
-
-            for gap_text in eval_data.get("gaps", []):
-                knowledge_gaps.append(
-                    KnowledgeGapModel(
-                        topic_id=turn.get("topic_id", "top_unknown"),
-                        topic_title=turn.get("question_text", "Topic")[:30],
-                        day_number=turn.get("day_number", 1),
-                        description=gap_text,
-                        severity="High" if overall_score.overall_score < 60 else "Medium",
-                    )
-                )
-
-        # 3. Generate actionable recommendations
-        recommendations = self.recommendation_engine.generate_recommendations(
-            knowledge_gaps=knowledge_gaps,
-            overall_score=overall_score.overall_score,
+        # 3. Prioritize recommendations
+        report.recommendations = RecommendationPriorityEngine.prioritize_recommendations(
+            recommendations=report.recommendations,
+            overall_score=report.overall_score.overall_score,
         )
+        logger.info("Recommendations generated: Ranked study recommendations by priority.")
 
-        # 4. Generate narrative summary
-        summary = SummaryGenerator.generate_summary(
-            overall_score=overall_score,
-            turn_answers=turn_answers,
-            candidate_name=candidate.full_name,
-        )
+        # 4. Pre-flight report validation
+        ReportValidator.validate_report(report)
+        logger.info(f"Report validated: Session '{session.session_id}' report passed validation.")
 
-        # 5. Assemble final report
-        report = ReportGenerator.assemble_report(
-            session_id=session.session_id,
-            candidate=candidate,
-            overall_score=overall_score,
-            strengths=strengths,
-            weaknesses=weaknesses,
-            knowledge_gaps=knowledge_gaps,
-            topics_covered=session.topics_covered,
-            days_covered=session.days_covered,
-            recommendations=recommendations,
-            summary=summary,
-        )
+        duration = time.time() - start_time
+        self.metrics_tracker.record_report(duration, report.overall_score.overall_score)
 
-        logger.info(f"Feedback report completed: Report successfully created for session '{session.session_id}'.")
+        logger.info(f"Feedback completed: Successfully generated report in {duration:.3f}s.")
         return report
 
 
