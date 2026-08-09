@@ -1,14 +1,27 @@
-import api from '../config/api';
+import apiClient from './apiClient';
 
 /**
- * Pings backend health check endpoint.
+ * Enhanced health check service with latency tracking in milliseconds.
  */
 export const checkHealth = async () => {
+  const startTime = performance.now();
   try {
-    const response = await api.get('/health');
-    return response.data;
+    const response = await apiClient.get('/health');
+    const latencyMs = Math.round(performance.now() - startTime);
+    return {
+      healthy: true,
+      status: response.data.status || 'ok',
+      latencyMs,
+      timestamp: new Date().toISOString(),
+    };
   } catch (error) {
-    console.error('[Health Check Error]: Backend server unavailable', error);
-    return { status: 'offline', healthy: false };
+    const latencyMs = Math.round(performance.now() - startTime);
+    console.error(`[Health Check Error]: Backend offline (${latencyMs}ms)`, error);
+    return {
+      healthy: false,
+      status: 'offline',
+      latencyMs,
+      timestamp: new Date().toISOString(),
+    };
   }
 };

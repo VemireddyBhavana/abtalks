@@ -3,6 +3,9 @@ import * as interviewApi from '../services/interview';
 import * as resultsApi from '../services/results';
 import * as sessionApi from '../services/session';
 import * as healthApi from '../services/health';
+import { sessionRecovery } from '../services/sessionRecovery';
+import { eventLogger } from '../services/eventLogger';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { notificationService } from '../services/notificationService';
 
 const InterviewContext = createContext(null);
@@ -10,7 +13,7 @@ const InterviewContext = createContext(null);
 export const InterviewProvider = ({ children }) => {
   const [candidate, setCandidate] = useState(null);
   const [analytics, setAnalytics] = useState(null);
-  const [sessionId, setSessionId] = useState(() => localStorage.getItem('abtalks_active_session_id') || null);
+  const [sessionId, setSessionId] = useState(() => sessionRecovery.getActiveSessionId());
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(8);
@@ -20,7 +23,10 @@ export const InterviewProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isBackendHealthy, setIsBackendHealthy] = useState(true);
+  const [latencyMs, setLatencyMs] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+
+  const { isOnline, wasOffline } = useNetworkStatus();
 
   // Subscribe to notificationService events
   useEffect(() => {
@@ -30,6 +36,21 @@ export const InterviewProvider = ({ children }) => {
     });
     return unsubscribe;
   }, []);
+
+  // Show reconnect toast when coming back online
+  useEffect(() => {
+    if (wasOffline) {
+      notificationService.notify('Network reconnected! Synchronizing state...', 'success');
+      if (sessionId) {
+        sessionRecovery.recoverSessionState().then((stateData) => {
+          if (stateData) {
+            setCurrentQuestionIndex(stateData.current_question_index);
+            setIsCompleted(stateData.done);
+          }
+        });
+      }
+    }
+  }, [wasOffline, sessionId]);
 
   // Check health and load candidate data on mount
   useEffect(() => {
@@ -41,40 +62,42 @@ export const InterviewProvider = ({ children }) => {
     try {
       const health = await healthApi.checkHealth();
       setIsBackendHealthy(health.healthy !== false);
+      setLatencyMs(health.latencyMs ?? null);
 
       const profile = await resultsApi.getCandidateProfile();
       const analyticsData = await resultsApi.getCandidateAnalytics();
       setCandidate(profile);
       setAnalytics(analyticsData);
 
-      // Session restore on page refresh
-      const storedSessionId = localStorage.getItem('abtalks_active_session_id');
+      // Session restore on page refresh via sessionRecovery service
+      const storedSessionId = sessionRecovery.getActiveSessionId();
       if (storedSessionId) {
         console.log(`[Session Restore]: Attempting state recovery for '${storedSessionId}'...`);
-        try {
-          const stateData = await sessionApi.getSessionState(storedSessionId);
-          if (stateData) {
-            setSessionId(stateData.session_id);
-            setCurrentQuestionIndex(stateData.current_question_index);
-            setIsCompleted(stateData.done);
-            if (stateData.plan?.questions?.[stateData.current_question_index]) {
-              setCurrentQuestion(stateData.plan.questions[stateData.current_question_index]);
-              console.log('[Question Loaded]: Restored active question from backend.');
-            }
-            if (stateData.done) {
-              const summaryData = await sessionApi.getSessionSummary(storedSessionId);
-              setFeedbackReport(summaryData.feedback_report);
-            }
-            console.log('[Session Restored]: State synchronized cleanly.');
+        const stateData = await sessionRecovery.recoverSessionState();
+        if (stateData) {
+          setSessionId(stateData.session_id);
+          setCurrentQuestionIndex(stateData.current_question_index);
+          setIsCompleted(stateData.done);
+          if (stateData.plan?.questions?.[stateData.current_question_index]) {
+            setCurrentQuestion(stateData.plan.questions[stateData.current_question_index]);
+            eventLogger.questionViewed(
+              stateData.plan.questions[stateData.current_question_index].id,
+              stateData.current_question_index,
+              stateData.plan.questions[stateData.current_question_index].topic_title
+            );
           }
-        } catch (err) {
-          console.warn('[Session Restore Warning]: Could not restore session from backend:', err);
-          localStorage.removeItem('abtalks_active_session_id');
+          if (stateData.done) {
+            const summaryData = await sessionApi.getSessionSummary(storedSessionId);
+            setFeedbackReport(summaryData.feedback_report);
+          }
+          console.log('[Session Restored]: State synchronized cleanly.');
+        } else {
           setSessionId(null);
         }
       }
     } catch (err) {
       console.error('Failed to initialize app context:', err);
+      eventLogger.apiError('initApp', err.message);
     } finally {
       setLoading(false);
     }
@@ -92,10 +115,13 @@ export const InterviewProvider = ({ children }) => {
       const data = await interviewApi.startInterview(customCandidateId);
       
       setSessionId(data.session_id);
-      localStorage.setItem('abtalks_active_session_id', data.session_id);
+      sessionRecovery.setActiveSessionId(data.session_id);
       
       setCurrentQuestion(data.question);
-      console.log(`[Question Loaded]: Question 1 (${data.question.topic_title}) loaded.`);
+      eventLogger.interviewStarted(data.session_id, customCandidateId);
+      if (data.question) {
+        eventLogger.questionViewed(data.question.question_id, 0, data.question.topic_title);
+      }
       
       setCurrentQuestionIndex(data.current_question_index);
       setTotalQuestions(data.total_questions);
@@ -108,6 +134,7 @@ export const InterviewProvider = ({ children }) => {
     } catch (err) {
       const msg = err.response?.data?.detail || err.message || 'Failed to start interview session';
       setError(msg);
+      eventLogger.apiError('/interview/start', msg);
       console.error('[Error]: Start interview failed:', msg);
       showToast(msg, 'error');
       throw err;
@@ -122,6 +149,7 @@ export const InterviewProvider = ({ children }) => {
     setError(null);
     try {
       console.log(`[Answer Submitted]: Submitting candidate answer for turn ${currentQuestionIndex + 1}...`);
+      eventLogger.answerSubmitted(sessionId, currentQuestionIndex, answerText.length);
       const data = await interviewApi.submitAnswer(sessionId, answerText);
       console.log('[Evaluation Received]: Turn evaluation processed by backend.');
 
@@ -131,11 +159,18 @@ export const InterviewProvider = ({ children }) => {
       if (data.done) {
         setFeedbackReport(data.feedback_report);
         setCurrentQuestion(null);
+        eventLogger.interviewCompleted(sessionId, data.feedback_report?.overall_score);
         console.log('[Interview Completed]: Final feedback report generated.');
         showToast('Interview completed! Report generated.', 'success');
       } else {
         setCurrentQuestion(data.next_question);
-        console.log(`[Question Loaded]: Question ${data.current_question_index + 1} (${data.next_question.topic_title}) loaded.`);
+        if (data.next_question) {
+          eventLogger.questionViewed(
+            data.next_question.question_id,
+            data.current_question_index,
+            data.next_question.topic_title
+          );
+        }
         setAnswerText('');
         showToast('Answer recorded. Next question loaded.', 'info');
       }
@@ -143,6 +178,7 @@ export const InterviewProvider = ({ children }) => {
     } catch (err) {
       const msg = err.response?.data?.detail || err.message || 'Failed to submit answer';
       setError(msg);
+      eventLogger.apiError('/interview/submit', msg);
       console.error('[Error]: Submit answer failed:', msg);
       showToast(msg, 'error');
       throw err;
@@ -159,6 +195,7 @@ export const InterviewProvider = ({ children }) => {
       return data;
     } catch (err) {
       console.error('Failed to load session summary:', err);
+      eventLogger.apiError(`/session/${targetSessionId}/summary`, err.message);
     } finally {
       setLoading(false);
     }
@@ -180,6 +217,8 @@ export const InterviewProvider = ({ children }) => {
         loading,
         error,
         isBackendHealthy,
+        latencyMs,
+        isOnline,
         toastMessage,
         showToast,
         startSession,
