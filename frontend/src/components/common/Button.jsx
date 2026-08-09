@@ -7,10 +7,11 @@ export const Button = ({
   disabled = false,
   className = '',
   type = 'button',
+  ariaLabel,
   ...props
 }) => {
   const baseStyle =
-    'px-5 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 focus:outline-none';
+    'px-5 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 motion-reduce:transition-none';
 
   const variants = {
     primary:
@@ -28,6 +29,8 @@ export const Button = ({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-disabled={disabled}
+      aria-label={ariaLabel}
       className={`${baseStyle} ${selectedVariant} ${className}`}
       {...props}
     >

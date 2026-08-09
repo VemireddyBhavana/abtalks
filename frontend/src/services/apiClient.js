@@ -51,4 +51,17 @@ apiClient.interceptors.response.use(
   }
 );
 
+/**
+ * Sanitizes input text to prevent XSS injection.
+ */
+export const sanitizeInput = (input) => {
+  if (typeof input !== 'string') return input;
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+};
+
 export default apiClient;
