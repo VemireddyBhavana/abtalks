@@ -70,6 +70,14 @@ export const ResultScreen = () => {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 font-semibold text-sm border border-slate-700 transition-all"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>Export Scorecard PDF</span>
+          </button>
+
+          <button
             onClick={handleRetake}
             className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-blue-500/20 transition-all"
           >
