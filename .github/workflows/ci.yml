@@ -26,6 +26,11 @@ jobs:
           cd frontend
           npm ci
 
+      - name: Run Frontend Vitest Suite
+        run: |
+          cd frontend
+          npm run test
+
       - name: Build Frontend Application
         run: |
           cd frontend
