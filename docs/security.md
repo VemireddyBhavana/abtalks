@@ -29,3 +29,21 @@ Configured via `RequestSizeLimitMiddleware`:
 
 ### 5. Memory & Data Encryption
 - Sensitive candidate responses stored in session memory are encrypted via AES-256 equivalent wrappers in `MemorySecurity`.
+
+---
+
+## 🔍 Dependency Security Scanning
+
+To maintain vulnerability-free software dependencies:
+
+### Python Backend Scanning
+```bash
+cd backend
+pip audit
+```
+
+### Node.js Frontend Scanning
+```bash
+cd frontend
+npm audit
+```
