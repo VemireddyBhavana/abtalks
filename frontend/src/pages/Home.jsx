@@ -22,16 +22,19 @@ export const Home = () => {
       icon: Cpu,
       title: 'LLM Question Generation',
       desc: 'Generates dynamic technical questions based on curriculum days and candidate profile using Gemini/OpenAI/Claude.',
+      action: () => navigate('/lobby'),
     },
     {
       icon: ShieldCheck,
       title: 'Real-time Rubric Evaluation',
       desc: 'Evaluates technical accuracy, terminology, reasoning, and completeness across 7 weighted categories.',
+      action: () => navigate('/dashboard'),
     },
     {
       icon: Code2,
       title: 'Adaptive Follow-up Engine',
       desc: 'Probes deeper on strong answers, seeks clarification on average answers, or simplifies on weak answers.',
+      action: handleStart,
     },
   ];
 
@@ -89,12 +92,16 @@ export const Home = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: idx * 0.1 }}
-              className="glass-panel glass-card-hover rounded-2xl p-6 border border-slate-700/40 flex flex-col gap-3"
+              onClick={f.action}
+              className="glass-panel glass-card-hover rounded-2xl p-6 border border-slate-700/40 flex flex-col gap-3 cursor-pointer hover:border-blue-500/50 hover:shadow-xl hover:shadow-blue-500/10 transition-all group"
             >
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
                 <Icon className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-slate-100">{f.title}</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-100 group-hover:text-blue-400 transition-colors">{f.title}</h3>
+                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+              </div>
               <p className="text-xs text-slate-400 leading-relaxed">{f.desc}</p>
             </motion.div>
           );
