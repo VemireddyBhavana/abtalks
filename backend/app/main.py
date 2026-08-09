@@ -50,14 +50,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.api.v1.hackathon_api import router as hackathon_router
+
 # Include Versioned API Routers
 app.include_router(v1_health_router, prefix="/api/v1")
 app.include_router(v1_curriculum_router, prefix="/api/v1")
 app.include_router(v1_candidate_router, prefix="/api/v1")
 app.include_router(v1_interview_router, prefix="/api/v1")
+app.include_router(hackathon_router, prefix="/api/v1")
 
-# Convenience Aliases
-app.include_router(v1_interview_router, prefix="/api")
+# Official Hackathon API Route Aliases (/api/interview)
+app.include_router(hackathon_router)
 
 
 @app.get("/", tags=["Root"], summary="Root Health Check", description="Returns health diagnostics for server and intelligence layer caches.")
