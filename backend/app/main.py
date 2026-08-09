@@ -59,8 +59,9 @@ app.include_router(v1_candidate_router, prefix="/api/v1")
 app.include_router(v1_interview_router, prefix="/api/v1")
 app.include_router(hackathon_router, prefix="/api/v1")
 
-# Official Hackathon API Route Aliases (/api/interview)
+# Official Hackathon API Route Aliases (/api/interview & /health)
 app.include_router(hackathon_router)
+app.include_router(v1_health_router)
 
 
 @app.get("/", tags=["Root"], summary="Root Health Check", description="Returns health diagnostics for server and intelligence layer caches.")
